@@ -706,7 +706,7 @@ where
         // respond to ping
         let pong_msg = Pong {
             ping_id: ping_msg.id,
-            local_record_seq: self.self_record.name_record.seq,
+            local_record_seq: self.self_record.name_record.seq(),
         };
         cmds.push(PeerDiscoveryCommand::PingPongCommand {
             target: from,
@@ -1417,10 +1417,13 @@ where
 
             // verify signature of name record
             let name_record = MonadNameRecord {
-                name_record: NameRecord {
-                    address: peer.addr,
-                    seq: peer.record_seq_num,
-                },
+                name_record: NameRecord::new(
+                    *peer.addr.ip(),
+                    peer.addr.port(),
+                    peer.addr.port(),
+                    0,
+                    peer.record_seq_num,
+                ),
                 signature: peer.signature,
             };
             let verified = name_record
@@ -1562,10 +1565,13 @@ mod tests {
     const DUMMY_ADDR: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::new(1, 1, 1, 1), 8000);
 
     fn generate_name_record(keypair: &KeyPairType, seq_num: u64) -> MonadNameRecord<SignatureType> {
-        let name_record = NameRecord {
-            address: DUMMY_ADDR,
-            seq: seq_num,
-        };
+        let name_record = NameRecord::new(
+            *DUMMY_ADDR.ip(),
+            DUMMY_ADDR.port(),
+            DUMMY_ADDR.port(),
+            0,
+            seq_num,
+        );
         let mut encoded = Vec::new();
         name_record.encode(&mut encoded);
         let signature = SignatureType::sign::<signing_domain::NameRecord>(&encoded, keypair);
@@ -1775,7 +1781,10 @@ mod tests {
         let pong = extract_pong(cmds);
         assert_eq!(pong.len(), 1);
         assert_eq!(pong[0].ping_id, 12345);
-        assert_eq!(pong[0].local_record_seq, state.self_record.name_record.seq);
+        assert_eq!(
+            pong[0].local_record_seq,
+            state.self_record.name_record.seq()
+        );
 
         // added to pending queue but not yet to routing_info
         assert!(state.pending_queue.contains_key(&peer1_pubkey));
@@ -2225,11 +2234,15 @@ mod tests {
     const OLD_ADDR: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::new(7, 7, 7, 7), 8000);
     const NEW_ADDR: SocketAddrV4 = SocketAddrV4::new(Ipv4Addr::new(8, 8, 8, 8), 8000);
 
-    #[test_case(None, NameRecord { address: NEW_ADDR, seq: 1 }, true, NameRecord { address: NEW_ADDR, seq: 1 }, true; "first record")]
-    #[test_case(Some(NameRecord { address: OLD_ADDR, seq: 1 }), NameRecord { address: NEW_ADDR, seq: 2 }, true, NameRecord { address: NEW_ADDR, seq: 2 }, true; "newer record")]
-    #[test_case(Some(NameRecord { address: OLD_ADDR, seq: 1 }), NameRecord { address: OLD_ADDR, seq: 1 }, true, NameRecord { address: OLD_ADDR, seq: 1 }, false; "same record")]
-    #[test_case(Some(NameRecord { address: NEW_ADDR, seq: 2 }), NameRecord { address: OLD_ADDR, seq: 1 }, false, NameRecord { address: NEW_ADDR, seq: 2 }, false; "older record")]
-    #[test_case(Some(NameRecord { address: OLD_ADDR, seq: 1 }), NameRecord { address: NEW_ADDR, seq: 1 }, false, NameRecord { address: OLD_ADDR, seq: 1 }, false; "conflicting record")]
+    fn make_name_record(addr: SocketAddrV4, seq: u64) -> NameRecord {
+        NameRecord::new(*addr.ip(), addr.port(), addr.port(), 0, seq)
+    }
+
+    #[test_case(None, make_name_record(NEW_ADDR, 1), true, make_name_record(NEW_ADDR, 1), true; "first record")]
+    #[test_case(Some(make_name_record(OLD_ADDR, 1)), make_name_record(NEW_ADDR, 2), true, make_name_record(NEW_ADDR, 2), true; "newer record")]
+    #[test_case(Some(make_name_record(OLD_ADDR, 1)), make_name_record(OLD_ADDR, 1), true, make_name_record(OLD_ADDR, 1), false; "same record")]
+    #[test_case(Some(make_name_record(NEW_ADDR, 2)), make_name_record(OLD_ADDR, 1), false, make_name_record(NEW_ADDR, 2), false; "older record")]
+    #[test_case(Some(make_name_record(OLD_ADDR, 1)), make_name_record(NEW_ADDR, 1), false, make_name_record(OLD_ADDR, 1), false; "conflicting record")]
     fn test_ping_record(
         known_record: Option<NameRecord>,
         incoming_record: NameRecord,
