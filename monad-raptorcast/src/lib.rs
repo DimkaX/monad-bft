@@ -567,7 +567,11 @@ where
                 } => {
                     self.handle_publish(target, message, priority, self_id);
                 }
-                RouterCommand::PublishToFullNodes { epoch, message } => {
+                RouterCommand::PublishToFullNodes {
+                    epoch,
+                    round: _,
+                    message,
+                } => {
                     let full_nodes_view = self.dedicated_full_nodes.view();
                     if self.is_dynamic_fullnode {
                         debug!("self is dynamic full node, skipping publishing to full nodes");

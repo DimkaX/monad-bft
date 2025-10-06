@@ -599,6 +599,7 @@ async fn publish_to_full_nodes() {
     let message = MockMessage::new(42, 10000);
     let command = RouterCommand::PublishToFullNodes {
         epoch: Epoch(0),
+        round: Round(0),
         message,
     };
     validator_rc.exec(vec![command]);
