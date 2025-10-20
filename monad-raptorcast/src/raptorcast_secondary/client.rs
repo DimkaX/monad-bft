@@ -589,6 +589,60 @@ mod tests {
     }
 
     #[test]
+    fn test_prioritized_upstream_overrides_max_num_group() {
+        let (clt_tx, _clt_rx): RcToRcChannelGrp<ST> = unbounded_channel();
+        let self_id = nid(1);
+        let mut clt = Client::<ST>::new(
+            self_id,
+            clt_tx,
+            RaptorCastConfigSecondaryClient {
+                max_num_group: 1,
+                max_group_size: 50,
+                invite_future_dist_min: Round(1),
+                invite_future_dist_max: Round(100),
+                invite_accept_heartbeat: Duration::from_secs(10),
+                prioritized_upstream: vec![nid(4)],
+            },
+        );
+
+        // PrepareGroup is accepted when client has slots
+        let response = clt.handle_prepare_group_message(PrepareGroup {
+            validator_id: nid(2),
+            max_group_size: 50,
+            start_round: Round(1),
+            end_round: Round(5),
+        });
+        assert!(response.accept);
+
+        // PrepareGroup is rejected because it exceeds max_num_group
+        let response = clt.handle_prepare_group_message(PrepareGroup {
+            validator_id: nid(3),
+            max_group_size: 50,
+            start_round: Round(4),
+            end_round: Round(8),
+        });
+        assert!(!response.accept);
+
+        // same PrepareGroup from prioritized upstream is accepted
+        let response = clt.handle_prepare_group_message(PrepareGroup {
+            validator_id: nid(4),
+            max_group_size: 50,
+            start_round: Round(4),
+            end_round: Round(8),
+        });
+        assert!(response.accept);
+
+        // prioritized PrepareGroup occupies slots. Regular PrepareGroup is rejected
+        let response = clt.handle_prepare_group_message(PrepareGroup {
+            validator_id: nid(3),
+            max_group_size: 50,
+            start_round: Round(7),
+            end_round: Round(10),
+        });
+        assert!(!response.accept);
+    }
+
+    #[test]
     fn test_get_current_group_count() {
         let (clt_tx, _clt_rx): RcToRcChannelGrp<ST> = unbounded_channel();
         let self_id = nid(1);
