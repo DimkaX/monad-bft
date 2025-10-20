@@ -46,9 +46,9 @@ where
 {
     client_node_id: NodeId<CertificateSignaturePubKey<ST>>, // Our (full-node) node_id as an invitee
 
-    // Full nodes may choose to reject a request if it doesn’t have enough
+    // Full nodes may choose to reject a request if it doesn't have enough
     // upload bandwidth to broadcast chunk to a large group.
-    config: RaptorCastConfigSecondaryClient,
+    config: RaptorCastConfigSecondaryClient<ST>,
 
     // [start_round, end_round) -> GroupAsClient
     // Represents all raptorcast groups that we have accepted and haven't expired
@@ -83,7 +83,7 @@ where
     pub fn new(
         client_node_id: NodeId<CertificateSignaturePubKey<ST>>,
         group_sink_channel: UnboundedSender<GroupAsClient<ST>>,
-        config: RaptorCastConfigSecondaryClient,
+        config: RaptorCastConfigSecondaryClient<ST>,
     ) -> Self {
         assert!(
             config.max_num_group > 0,
@@ -492,6 +492,7 @@ mod tests {
                 invite_future_dist_min: Round(1),
                 invite_future_dist_max: Round(100),
                 invite_accept_heartbeat: Duration::from_secs(10),
+                prioritized_upstream: vec![],
             },
         );
 
@@ -542,6 +543,7 @@ mod tests {
                 invite_future_dist_min: Round(1),
                 invite_future_dist_max: Round(100),
                 invite_accept_heartbeat: Duration::from_secs(10),
+                prioritized_upstream: vec![],
             },
         );
 
@@ -591,6 +593,7 @@ mod tests {
                 invite_future_dist_min: Round(1),
                 invite_future_dist_max: Round(100),
                 invite_accept_heartbeat: Duration::from_secs(10),
+                prioritized_upstream: vec![],
             },
         );
 

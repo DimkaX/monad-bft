@@ -207,6 +207,7 @@ where
                         invite_accept_heartbeat: Duration::from_millis(
                             cfg.secondary_instance.invite_accept_heartbeat_ms,
                         ),
+                        prioritized_upstream: cfg.secondary_instance.prioritized_upstream.clone(),
                     }),
                 }
             }
