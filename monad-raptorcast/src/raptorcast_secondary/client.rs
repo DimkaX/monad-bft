@@ -196,58 +196,66 @@ where
             return false;
         }
 
-        let log_exceed_max_num_group = || {
-            debug!(
-                "RaptorCastSecondary rejected invite for rounds \
-                        [{:?}, {:?}) from validator {:?} due to exceeding number of active groups",
-                invite_msg.start_round, invite_msg.end_round, invite_msg.validator_id
-            );
-        };
-        let mut num_current_groups = 0;
-
-        // Check confirmed groups
-        for group in self
-            .confirmed_groups
-            .values(invite_msg.start_round..invite_msg.end_round)
+        // If validator is not in prioritized upstream, check that we won't
+        // exceed max_num_group limit in the entire service span
+        if !self
+            .config
+            .prioritized_upstream
+            .contains(&invite_msg.validator_id)
         {
-            // Check if we already have an overlapping invite from same
-            // validator, e.g. [30, 40)->validator3 but we already
-            // have [25, 35)->validator3
-            // Note that we accept overlaps across different validators,
-            // e.g. [30, 40)->validator3 + [25, 35)->validator4
-            if group.get_validator_id() == &invite_msg.validator_id {
-                warn!(
-                    "RaptorCastSecondary received self-overlapping \
-                            invite for rounds [{:?}, {:?}) from validator {:?}",
+            let log_exceed_max_num_group = || {
+                debug!(
+                    "RaptorCastSecondary rejected invite for rounds \
+                            [{:?}, {:?}) from validator {:?} due to exceeding number of active groups",
                     invite_msg.start_round, invite_msg.end_round, invite_msg.validator_id
                 );
-                return false;
-            }
+            };
+            let mut num_current_groups = 0;
 
-            // Check that it doesn't exceed max number of groups during round span
-            num_current_groups += 1;
-            if num_current_groups + 1 > self.config.max_num_group {
-                log_exceed_max_num_group();
-                return false;
-            }
-        }
-
-        // Check groups we were invited to but are still unconfirmed
-        for (&key, other_invites) in self.pending_confirms.iter() {
-            if key >= invite_msg.end_round {
-                // Remaining keys are outside the invite range
-                break;
-            }
-
-            for other in other_invites.values() {
-                if !Self::overlaps(other.start_round, other.end_round, invite_msg) {
-                    continue;
+            // Check confirmed groups
+            for group in self
+                .confirmed_groups
+                .values(invite_msg.start_round..invite_msg.end_round)
+            {
+                // Check if we already have an overlapping invite from same
+                // validator, e.g. [30, 40)->validator3 but we already
+                // have [25, 35)->validator3
+                // Note that we accept overlaps across different validators,
+                // e.g. [30, 40)->validator3 + [25, 35)->validator4
+                if group.get_validator_id() == &invite_msg.validator_id {
+                    warn!(
+                        "RaptorCastSecondary received self-overlapping \
+                                invite for rounds [{:?}, {:?}) from validator {:?}",
+                        invite_msg.start_round, invite_msg.end_round, invite_msg.validator_id
+                    );
+                    return false;
                 }
 
+                // Check that it doesn't exceed max number of groups during round span
                 num_current_groups += 1;
                 if num_current_groups + 1 > self.config.max_num_group {
                     log_exceed_max_num_group();
                     return false;
+                }
+            }
+
+            // Check groups we were invited to but are still unconfirmed
+            for (&key, other_invites) in self.pending_confirms.iter() {
+                if key >= invite_msg.end_round {
+                    // Remaining keys are outside the invite range
+                    break;
+                }
+
+                for other in other_invites.values() {
+                    if !Self::overlaps(other.start_round, other.end_round, invite_msg) {
+                        continue;
+                    }
+
+                    num_current_groups += 1;
+                    if num_current_groups + 1 > self.config.max_num_group {
+                        log_exceed_max_num_group();
+                        return false;
+                    }
                 }
             }
         }
