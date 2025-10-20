@@ -22,7 +22,7 @@ use monad_crypto::certificate_signature::{
 use monad_executor::ExecutorMetrics;
 use monad_types::{NodeId, Round, RoundSpan, GENESIS_ROUND};
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 
 use super::{
     super::{config::RaptorCastConfigSecondaryClient, util::Group},
@@ -145,6 +145,19 @@ where
     // round is, and should advance the state machine despite self.curr_round
     fn is_receiving_proposals(&self) -> bool {
         Instant::now() < self.last_round_heartbeat + self.config.invite_accept_heartbeat
+    }
+
+    /// Update the prioritized upstream validators list at runtime
+    pub fn update_prioritized_upstream(
+        &mut self,
+        prioritized_upstream: Vec<NodeId<CertificateSignaturePubKey<ST>>>,
+    ) {
+        info!(
+            "RaptorCastSecondary Client updating prioritized_upstream from {} to {} validators",
+            self.config.prioritized_upstream.len(),
+            prioritized_upstream.len()
+        );
+        self.config.prioritized_upstream = prioritized_upstream;
     }
 
     fn validate_prepare_group_message(&self, invite_msg: &PrepareGroup<ST>) -> bool {

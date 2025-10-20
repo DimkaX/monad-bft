@@ -335,6 +335,12 @@ where
                     validator_cmds.push(cmd_cpy);
                     fullnodes_cmds.push(cmd);
                 }
+                RouterCommand::UpdateUpstreamValidators {
+                    prioritized_upstream: _,
+                } => {
+                    // This command is only relevant for full-nodes
+                    fullnodes_cmds.push(cmd);
+                }
                 RouterCommand::UpdateCurrentRound(epoch, round) => {
                     let cmd_cpy = RouterCommand::UpdateCurrentRound(epoch, round);
                     if epoch > self.current_epoch {

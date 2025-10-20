@@ -672,6 +672,10 @@ where
                 } => {
                     self.dedicated_full_nodes.list = dedicated_full_nodes;
                 }
+                RouterCommand::UpdateUpstreamValidators { .. } => {
+                    // Primary RaptorCast doesn't need upstream validators config
+                    // This is only for full-nodes (handled by secondary)
+                }
             }
         }
     }
