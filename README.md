@@ -86,6 +86,7 @@ To use existing images instead of building from source, edit `docker/single-node
 nets/run.sh --use-prebuilt
 ```
 
+
 To test the RPC connection, try the following query:
 
 ```bash
